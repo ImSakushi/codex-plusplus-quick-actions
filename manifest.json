@@ -1,0 +1,13 @@
+{
+  "id": "com.imsakushi.quick-actions",
+  "name": "Quick Actions",
+  "version": "0.2.0",
+  "githubRepo": "ImSakushi/codex-plusplus-quick-actions",
+  "description": "Custom workflow actions for Codex's Git panel.",
+  "author": {
+    "name": "ImSakushi"
+  },
+  "tags": ["git", "workflow", "productivity"],
+  "scope": "renderer",
+  "main": "index.cjs"
+}
