@@ -528,9 +528,31 @@ function rerenderSettingsPage(state) {
 function actionSettingsRow(state, action, index) {
   const isEditing = state.editingActionId === action.id;
   const row = el("div", "flex flex-col gap-3 p-3");
+  const toggleEditor = () => {
+    state.editingActionId = isEditing ? null : action.id;
+    rerenderSettingsPage(state);
+  };
 
   const top = el("div", "flex items-center justify-between gap-4");
-  const left = el("div", "flex min-w-0 items-center gap-3");
+  const left = document.createElement("button");
+  left.type = "button";
+  left.setAttribute("aria-expanded", String(isEditing));
+  left.className = [
+    "flex",
+    "min-w-0",
+    "flex-1",
+    "items-center",
+    "gap-3",
+    "rounded-md",
+    "p-1",
+    "text-left",
+    "cursor-interaction",
+    "hover:bg-token-foreground/5",
+    "focus-visible:outline-none",
+    "focus-visible:ring-2",
+    "focus-visible:ring-token-focus-border",
+  ].join(" ");
+  left.addEventListener("click", toggleEditor);
   const icon = createActionIcon(action.icon);
   icon.classList.add("shrink-0", "text-token-text-secondary");
   const text = el("div", "flex min-w-0 flex-col gap-1");
@@ -545,10 +567,7 @@ function actionSettingsRow(state, action, index) {
   controls.append(
     iconButton("Move up", "up", () => moveAction(state, index, -1), index === 0),
     iconButton("Move down", "down", () => moveAction(state, index, 1), index === state.actionDefs.length - 1),
-    settingsButton(isEditing ? "Done" : "Edit", "ghost", () => {
-      state.editingActionId = isEditing ? null : action.id;
-      rerenderSettingsPage(state);
-    }),
+    settingsButton(isEditing ? "Done" : "Edit", "ghost", toggleEditor),
     settingsButton("Delete", "danger", () => deleteAction(state, action.id)),
   );
   top.append(left, controls);
