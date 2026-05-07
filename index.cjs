@@ -498,7 +498,6 @@ function renderSettingsPage(root, state) {
 
   const toolbar = el("div", "flex flex-wrap items-center gap-2");
   toolbar.append(
-    settingsButton("Add action", "primary", () => addAction(state)),
     settingsButton("Export JSON", "ghost", () => exportActions(state)),
     settingsButton("Import JSON", "ghost", () => openImportPicker(state)),
     settingsButton("Reset defaults", "danger", () => {
