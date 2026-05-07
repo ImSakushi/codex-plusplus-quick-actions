@@ -36,12 +36,79 @@ const DEFAULT_ACTIONS = [
 ];
 const ICON_OPTIONS = [
   { value: "pull", label: "Pull" },
+  { value: "push", label: "Push" },
   { value: "commit", label: "Commit" },
-  { value: "review", label: "Review" },
-  { value: "spark", label: "Spark" },
-  { value: "terminal", label: "Terminal" },
   { value: "branch", label: "Branch" },
+  { value: "merge", label: "Merge" },
+  { value: "tag", label: "Tag" },
+  { value: "review", label: "Review" },
+  { value: "terminal", label: "Terminal" },
+  { value: "bug", label: "Bug" },
+  { value: "test", label: "Test" },
+  { value: "file", label: "File" },
+  { value: "search", label: "Search" },
+  { value: "rocket", label: "Rocket" },
+  { value: "shield", label: "Shield" },
+  { value: "package", label: "Package" },
+  { value: "cloud", label: "Cloud" },
+  { value: "spark", label: "Spark" },
 ];
+const ICON_SVG_PATHS = {
+  pull:
+    '<path d="M10 3.5v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M6.75 9.25 10 12.5l3.25-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M4.5 15.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  push:
+    '<path d="M10 16.5v-9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M6.75 10.75 10 7.5l3.25 3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M4.5 4.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  commit:
+    '<path d="M3.5 10h4M12.5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/>',
+  branch:
+    '<path d="M6.5 5.5v5a4 4 0 0 0 4 4h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M6.5 10.5h4a3 3 0 0 0 3-3v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<circle cx="6.5" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>' +
+    '<circle cx="13.5" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>' +
+    '<circle cx="14.5" cy="14.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>',
+  merge:
+    '<path d="M6.5 4.5v4a5 5 0 0 0 5 5h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M11.25 10.75 14 13.5l-2.75 2.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="6.5" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>',
+  tag:
+    '<path d="M4 5.5a1.5 1.5 0 0 1 1.5-1.5h4.1c.4 0 .78.16 1.06.44l5.1 5.1a1.5 1.5 0 0 1 0 2.12l-3.6 3.6a1.5 1.5 0 0 1-2.12 0l-5.1-5.1A1.5 1.5 0 0 1 4.5 9.1V5.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<circle cx="7.25" cy="7.25" r=".75" fill="currentColor"/>',
+  review:
+    '<path d="M8.75 14.25a5.5 5.5 0 1 1 3.89-1.61L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M6.5 8.75l1.5 1.5 3-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  terminal:
+    '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9Z" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="m6.5 8 2 2-2 2M10.5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  bug:
+    '<path d="M6.5 8.5h7v3.25a3.5 3.5 0 0 1-7 0V8.5Z" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M7.5 6.75a2.5 2.5 0 0 1 5 0M4.5 9.5h2M13.5 9.5h2M4.5 13h2.25M13.25 13h2.25M8 4.5 6.5 3M12 4.5 13.5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  test:
+    '<path d="M7.5 3.5v4.25l-3 5.5A2.2 2.2 0 0 0 6.45 16.5h7.1a2.2 2.2 0 0 0 1.95-3.25l-3-5.5V3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M7 10.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  file:
+    '<path d="M5 3.5h5.5L15 8v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M10.5 3.5V8H15" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+  search:
+    '<path d="M8.75 14.25a5.5 5.5 0 1 1 3.89-1.61L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  rocket:
+    '<path d="M11.5 4.25c1.6-.7 3.05-.78 4.25-.5.28 1.2.2 2.65-.5 4.25-.75 1.72-2.15 3.35-4.05 4.7l-3.9-3.9c1.35-1.9 2.98-3.3 4.2-4.55Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M7.25 9 5.5 9.25 4 12l2.75-.5M11 12.75 10.75 14.5 8 16l.5-2.75M12.75 6.75h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  shield:
+    '<path d="M10 3.5 15 5.25v3.9c0 3.15-1.85 5.95-5 7.35-3.15-1.4-5-4.2-5-7.35v-3.9L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="m7.75 10 1.5 1.5 3-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  package:
+    '<path d="M10 3.5 15.5 6.5v6.5L10 16.5 4.5 13V6.5L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M4.75 6.75 10 9.75l5.25-3M10 9.75v6.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+  cloud:
+    '<path d="M6.75 14.5h6.75a3 3 0 0 0 .4-5.97 4.5 4.5 0 0 0-8.65 1.2A2.4 2.4 0 0 0 6.75 14.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  spark:
+    '<path d="M10 3.5 11.4 8.6 16.5 10l-5.1 1.4L10 16.5l-1.4-5.1L3.5 10l5.1-1.4L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+};
 
 /** @type {import("@codex-plusplus/sdk").Tweak} */
 module.exports = {
@@ -448,22 +515,23 @@ function actionSettingsRow(state, action, index) {
 function actionEditor(state, action) {
   const editor = el("div", "grid gap-3 rounded-lg bg-token-foreground/5 p-3");
   const titleInput = textInput(action.label, "Title");
-  const iconSelect = iconSelectInput(action.icon);
+  const iconPicker = iconPickerInput(action.icon, (icon) => {
+    updateAction(state, action.id, { icon });
+  });
   const promptInput = textareaInput(action.prompt, "Prompt");
 
   titleInput.addEventListener("input", () => {
     updateAction(state, action.id, { label: titleInput.value });
   });
-  iconSelect.addEventListener("change", () => {
-    updateAction(state, action.id, { icon: iconSelect.value });
-  });
   promptInput.addEventListener("input", () => {
     updateAction(state, action.id, { prompt: promptInput.value });
   });
 
-  const grid = el("div", "grid gap-3 md:grid-cols-[1fr_180px]");
-  grid.append(settingsField("Title", titleInput), settingsField("Logo", iconSelect));
-  editor.append(grid, settingsField("Prompt", promptInput));
+  editor.append(
+    settingsField("Title", titleInput),
+    settingsField("Logo", iconPicker),
+    settingsField("Prompt", promptInput),
+  );
   return editor;
 }
 
@@ -599,7 +667,7 @@ function iconButton(label, direction, onClick, disabled) {
 }
 
 function settingsField(label, control) {
-  const field = el("label", "flex min-w-0 flex-col gap-1");
+  const field = el("div", "flex min-w-0 flex-col gap-1");
   const text = el("span", "text-token-text-secondary text-xs");
   text.textContent = label;
   field.append(text, control);
@@ -624,17 +692,57 @@ function textareaInput(value, placeholder) {
   return input;
 }
 
-function iconSelectInput(value) {
-  const select = document.createElement("select");
-  select.className = inputClassName();
+function iconPickerInput(value, onSelect) {
+  const selected = ICON_OPTIONS.some((option) => option.value === value) ? value : "spark";
+  const grid = el("div", "grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4");
+
   for (const option of ICON_OPTIONS) {
-    const item = document.createElement("option");
-    item.value = option.value;
-    item.textContent = option.label;
-    select.appendChild(item);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.title = option.label;
+    button.setAttribute("aria-label", option.label);
+    button.setAttribute("aria-pressed", String(option.value === selected));
+    button.className = iconChoiceClass(option.value === selected);
+
+    const icon = createActionIcon(option.value);
+    icon.classList.add("shrink-0");
+    const label = el("span", "min-w-0 truncate text-xs");
+    label.textContent = option.label;
+    button.append(icon, label);
+
+    button.addEventListener("click", () => {
+      for (const item of grid.querySelectorAll("button")) {
+        const isSelected = item === button;
+        item.setAttribute("aria-pressed", String(isSelected));
+        item.className = iconChoiceClass(isSelected);
+      }
+      onSelect?.(option.value);
+    });
+
+    grid.appendChild(button);
   }
-  select.value = ICON_OPTIONS.some((option) => option.value === value) ? value : "spark";
-  return select;
+
+  return grid;
+}
+
+function iconChoiceClass(selected) {
+  return [
+    "border-token-border",
+    "inline-flex",
+    "h-10",
+    "min-w-0",
+    "items-center",
+    "gap-2",
+    "rounded-md",
+    "border",
+    "px-2",
+    "text-left",
+    "text-token-text-primary",
+    "cursor-interaction",
+    selected
+      ? "bg-token-charts-blue/10 text-token-charts-blue ring-1 ring-token-charts-blue/40"
+      : "bg-token-foreground/5 hover:bg-token-foreground/10",
+  ].join(" ");
 }
 
 function inputClassName() {
@@ -731,45 +839,7 @@ function createActionIcon(iconName) {
   svg.setAttribute("viewBox", "0 0 20 20");
   svg.setAttribute("fill", "none");
   svg.setAttribute("aria-hidden", "true");
-  if (iconName === "review") {
-    svg.innerHTML =
-      '<path d="M8.75 14.25a5.5 5.5 0 1 1 3.89-1.61L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<path d="M6.5 8.75l1.5 1.5 3-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
-    return svg;
-  }
-
-  if (iconName === "pull") {
-    svg.innerHTML =
-      '<path d="M10 3.5v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
-      '<path d="M6.75 9.25 10 12.5l3.25-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<path d="M4.5 15.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
-    return svg;
-  }
-
-  if (iconName === "terminal") {
-    svg.innerHTML =
-      '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9Z" stroke="currentColor" stroke-width="1.5"/>' +
-      '<path d="m6.5 8 2 2-2 2M10.5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
-    return svg;
-  }
-
-  if (iconName === "branch") {
-    svg.innerHTML =
-      '<path d="M6.5 5.5v5a4 4 0 0 0 4 4h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
-      '<path d="M6.5 10.5h4a3 3 0 0 0 3-3v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
-      '<circle cx="6.5" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>' +
-      '<circle cx="13.5" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>' +
-      '<circle cx="14.5" cy="14.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>';
-    return svg;
-  }
-
-  if (iconName === "spark") {
-    svg.innerHTML =
-      '<path d="M10 3.5 11.4 8.6 16.5 10l-5.1 1.4L10 16.5l-1.4-5.1L3.5 10l5.1-1.4L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>';
-    return svg;
-  }
-
-  svg.innerHTML =
+  svg.innerHTML = ICON_SVG_PATHS[iconName] || ICON_SVG_PATHS.commit ||
     '<path d="M3.5 10h4M12.5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '<circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/>';
   return svg;
