@@ -7,8 +7,10 @@ Each action opens a new Codex conversation and sends the prompt you configured. 
 ## Features
 
 - Add custom actions to the Git panel
-- Configure each action's title, prompt, and icon
-- Reorder, edit, delete, and reset actions from Codex++ settings
+- Configure each action's title, prompt, icon, and send mode
+- Use prompt variables like `{repo}`, `{branch}`, `{cwd}`, `{date}`, and `{selectedText}`
+- Reorder with drag and drop, duplicate, edit, delete, and reset actions from Codex++ settings
+- Import and export action presets as JSON
 - Persist actions through Codex++ tweak storage
 - Built-in defaults for Git pull, multi-commit push, and code review
 
@@ -18,7 +20,7 @@ Clone this repository into your Codex++ tweaks directory:
 
 ```sh
 cd "$HOME/Library/Application Support/codex-plusplus/tweaks"
-git clone https://github.com/ImSakushi/codex-plusplus-quick-actions.git quick-actions
+git clone https://github.com/ImSakushi/codex-plusplus-quick-actions.git co.sakushi.quick-actions
 ```
 
 Then enable **Quick Actions** from Codex++ Tweaks.
@@ -26,3 +28,5 @@ Then enable **Quick Actions** from Codex++ Tweaks.
 ## Configure
 
 Open Codex settings, go to **Quick Actions**, then add or edit actions. Actions without a prompt stay in settings but are not shown in the Git panel.
+
+Enable **Confirmation before send** on actions that should only prefill the composer. Leave it off for actions that should submit immediately.

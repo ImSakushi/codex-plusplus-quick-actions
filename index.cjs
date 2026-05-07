@@ -9,6 +9,7 @@ const THREAD_SUMMARY_PANEL_ATTR = "data-codexpp-quick-actions-thread-summary-pan
 const FALLBACK_PANEL_ATTR = "data-codexpp-quick-actions-fallback-panel";
 const STYLE_ATTR = "data-codexpp-quick-actions-style";
 const ACTIONS_STORAGE_KEY = "actions";
+const EXPORT_VERSION = 1;
 const CREATE_PR_LABEL = "create pull request";
 const MENU_MARKERS = ["branch details", "changes", "git actions"];
 const DEFAULT_ACTIONS = [
@@ -16,6 +17,7 @@ const DEFAULT_ACTIONS = [
     id: "git-pull",
     label: "Git pull",
     icon: "pull",
+    mode: "confirm",
     prompt:
       "git pull le repo, s'il y a des conflits, arrête le pull et signale les moi et explique le moi en me disant exactement quelle feature bloque avec laquelle et propose une solution propre",
   },
@@ -23,6 +25,7 @@ const DEFAULT_ACTIONS = [
     id: "multi-commit-and-push",
     label: "Multi commit and push",
     icon: "commit",
+    mode: "auto",
     prompt:
       "commit and push all the files, create multiple commits to differenciate each features. commit in english with prefix",
   },
@@ -30,6 +33,7 @@ const DEFAULT_ACTIONS = [
     id: "code-review",
     label: "Code review",
     icon: "review",
+    mode: "auto",
     prompt:
       "[$review-uncommitted-json-fr](/Users/adriendevoe/.codex/skills/review-uncommitted-json-fr/SKILL.md) ",
   },
@@ -174,6 +178,8 @@ module.exports = {
       pageHandle: null,
       pageRoot: null,
       editingActionId: null,
+      draggedActionId: null,
+      importInput: null,
     };
     this._state = state;
 
@@ -497,11 +503,20 @@ function renderSettingsPage(root, state) {
       state.editingActionId = action.id;
       refreshActions(state, [...state.actionDefs, action]);
     }),
+    settingsButton("Export JSON", "ghost", () => exportActions(state)),
+    settingsButton("Import JSON", "ghost", () => openImportPicker(state)),
     settingsButton("Reset defaults", "danger", () => {
       state.editingActionId = null;
       refreshActions(state, DEFAULT_ACTIONS);
     }),
   );
+  const importInput = document.createElement("input");
+  importInput.type = "file";
+  importInput.accept = "application/json,.json";
+  importInput.hidden = true;
+  importInput.addEventListener("change", () => importActionsFromFile(state, importInput));
+  state.importInput = importInput;
+  toolbar.appendChild(importInput);
   section.appendChild(toolbar);
 
   if (state.actionDefs.length === 0) {
@@ -528,6 +543,32 @@ function rerenderSettingsPage(state) {
 function actionSettingsRow(state, action, index) {
   const isEditing = state.editingActionId === action.id;
   const row = el("div", "flex flex-col gap-3 p-3");
+  row.draggable = true;
+  row.setAttribute("data-quick-action-id", action.id);
+  row.addEventListener("dragstart", (event) => {
+    state.draggedActionId = action.id;
+    row.style.opacity = "0.55";
+    event.dataTransfer?.setData("text/plain", action.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  });
+  row.addEventListener("dragend", () => {
+    state.draggedActionId = null;
+    row.style.opacity = "";
+  });
+  row.addEventListener("dragover", (event) => {
+    if (!state.draggedActionId || state.draggedActionId === action.id) return;
+    event.preventDefault();
+    row.classList.add("bg-token-foreground/5");
+  });
+  row.addEventListener("dragleave", () => {
+    row.classList.remove("bg-token-foreground/5");
+  });
+  row.addEventListener("drop", (event) => {
+    event.preventDefault();
+    row.classList.remove("bg-token-foreground/5");
+    const draggedId = event.dataTransfer?.getData("text/plain") || state.draggedActionId;
+    if (draggedId && draggedId !== action.id) reorderActionById(state, draggedId, action.id);
+  });
   const toggleEditor = () => {
     state.editingActionId = isEditing ? null : action.id;
     rerenderSettingsPage(state);
@@ -568,6 +609,7 @@ function actionSettingsRow(state, action, index) {
     iconButton("Move up", "up", () => moveAction(state, index, -1), index === 0),
     iconButton("Move down", "down", () => moveAction(state, index, 1), index === state.actionDefs.length - 1),
     settingsButton(isEditing ? "Done" : "Edit", "ghost", toggleEditor),
+    settingsButton("Duplicate", "ghost", () => duplicateAction(state, action.id)),
     settingsButton("Delete", "danger", () => deleteAction(state, action.id)),
   );
   top.append(left, controls);
@@ -587,6 +629,9 @@ function actionEditor(state, action) {
     updateAction(state, action.id, { icon });
   });
   const promptInput = textareaInput(action.prompt, "Prompt");
+  const modeToggle = switchControl(action.mode === "confirm", (checked) => {
+    updateAction(state, action.id, { mode: checked ? "confirm" : "auto" });
+  });
 
   titleInput.addEventListener("input", () => {
     updateAction(state, action.id, { label: titleInput.value });
@@ -598,6 +643,12 @@ function actionEditor(state, action) {
   editor.append(
     settingsField("Title", titleInput),
     settingsField("Logo", iconPicker),
+    settingRow(
+      "Confirmation before send",
+      "When enabled, Quick Actions opens the new conversation and fills the prompt without submitting it.",
+      modeToggle,
+    ),
+    variablesHint(),
     settingsField("Prompt", promptInput),
   );
   return editor;
@@ -615,6 +666,76 @@ function moveAction(state, index, direction) {
 function deleteAction(state, id) {
   if (state.editingActionId === id) state.editingActionId = null;
   refreshActions(state, state.actionDefs.filter((action) => action.id !== id));
+}
+
+async function exportActions(state) {
+  const payload = JSON.stringify({
+    quickActions: true,
+    version: EXPORT_VERSION,
+    actions: state.actionDefs,
+  }, null, 2);
+
+  try {
+    await navigator.clipboard?.writeText?.(payload);
+  } catch {
+    /* clipboard may be unavailable */
+  }
+
+  const blob = new Blob([payload], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "quick-actions.json";
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function openImportPicker(state) {
+  state.importInput?.click();
+}
+
+async function importActionsFromFile(state, input) {
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const actions = Array.isArray(parsed) ? parsed : parsed?.actions;
+    if (!Array.isArray(actions)) throw new Error("No actions array found");
+    state.editingActionId = null;
+    refreshActions(state, actions);
+  } catch (error) {
+    state.api.log.warn("[quick-actions] import failed", error);
+    window.alert?.(`Quick Actions import failed: ${error?.message || String(error)}`);
+  }
+}
+
+function duplicateAction(state, id) {
+  const index = state.actionDefs.findIndex((action) => action.id === id);
+  if (index < 0) return;
+  const source = state.actionDefs[index];
+  const copy = normalizeActionDef({
+    ...source,
+    id: createActionId(),
+    label: `${actionDisplayLabel(source)} copy`,
+  });
+  const next = [...state.actionDefs];
+  next.splice(index + 1, 0, copy);
+  state.editingActionId = copy.id;
+  refreshActions(state, next);
+}
+
+function reorderActionById(state, draggedId, targetId) {
+  const from = state.actionDefs.findIndex((action) => action.id === draggedId);
+  const to = state.actionDefs.findIndex((action) => action.id === targetId);
+  if (from < 0 || to < 0 || from === to) return;
+
+  const next = [...state.actionDefs];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  refreshActions(state, next);
 }
 
 function updateAction(state, id, patch) {
@@ -640,6 +761,7 @@ function normalizeActionDefs(value) {
 function normalizeActionDef(value) {
   const fallback = createBlankAction();
   const iconValues = new Set(ICON_OPTIONS.map((option) => option.value));
+  const mode = value?.mode === "confirm" ? "confirm" : "auto";
   const id = typeof value?.id === "string" && value.id.trim()
     ? value.id.trim()
     : fallback.id;
@@ -647,7 +769,7 @@ function normalizeActionDef(value) {
   const prompt = typeof value?.prompt === "string" ? value.prompt : "";
   const icon = iconValues.has(value?.icon) ? value.icon : "spark";
 
-  return { id, label, prompt, icon };
+  return { id, label, prompt, icon, mode };
 }
 
 function runnableActionDefs(state) {
@@ -660,11 +782,16 @@ function actionDisplayLabel(action) {
 
 function createBlankAction() {
   return {
-    id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    id: createActionId(),
     label: "New action",
     icon: "spark",
+    mode: "auto",
     prompt: "",
   };
+}
+
+function createActionId() {
+  return `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function el(tag, className) {
@@ -740,6 +867,57 @@ function settingsField(label, control) {
   text.textContent = label;
   field.append(text, control);
   return field;
+}
+
+function settingRow(label, description, control) {
+  const row = el("div", "flex items-center justify-between gap-4 rounded-md border border-token-border bg-token-foreground/5 p-3");
+  const left = el("div", "flex min-w-0 flex-col gap-1");
+  const title = el("div", "text-sm text-token-text-primary");
+  title.textContent = label;
+  const desc = el("div", "text-token-text-secondary text-xs");
+  desc.textContent = description;
+  left.append(title, desc);
+  row.append(left, control);
+  return row;
+}
+
+function variablesHint() {
+  const hint = el("div", "text-token-text-secondary rounded-md border border-token-border bg-token-foreground/5 p-3 text-xs");
+  hint.textContent = "Variables: {repo}, {branch}, {cwd}, {date}, {time}, {datetime}, {url}, {title}, {selectedText}";
+  return hint;
+}
+
+function switchControl(initial, onChange) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.setAttribute("role", "switch");
+  const pill = document.createElement("span");
+  const knob = document.createElement("span");
+  knob.className =
+    "rounded-full border border-[color:var(--gray-0)] bg-[color:var(--gray-0)] " +
+    "shadow-sm transition-transform duration-200 ease-out h-4 w-4";
+  pill.appendChild(knob);
+
+  const apply = (on) => {
+    btn.setAttribute("aria-checked", String(on));
+    btn.className =
+      "inline-flex items-center text-sm focus-visible:outline-none focus-visible:ring-2 " +
+      "focus-visible:ring-token-focus-border focus-visible:rounded-full cursor-interaction";
+    pill.className =
+      "relative inline-flex shrink-0 items-center rounded-full transition-colors " +
+      "duration-200 ease-out h-5 w-8 " +
+      (on ? "bg-token-charts-blue" : "bg-token-foreground/20");
+    knob.style.transform = on ? "translateX(14px)" : "translateX(2px)";
+  };
+
+  apply(initial);
+  btn.appendChild(pill);
+  btn.addEventListener("click", () => {
+    const next = btn.getAttribute("aria-checked") !== "true";
+    apply(next);
+    onChange?.(next);
+  });
+  return btn;
 }
 
 function textInput(value, placeholder) {
@@ -980,11 +1158,13 @@ async function runPromptAction(state, def) {
   const composer = await waitForComposer(5000);
   if (!composer) {
     state.api.log.warn("[quick-actions] no active composer found");
-    await copyPromptFallback(def.prompt);
+    await copyPromptFallback(resolvePromptVariables(def.prompt));
     return;
   }
 
-  fillComposer(composer, def.prompt);
+  const prompt = resolvePromptVariables(def.prompt);
+  fillComposer(composer, prompt);
+  if (def.mode === "confirm") return;
   await submitComposerPrompt(composer);
 }
 
@@ -1043,6 +1223,67 @@ function closeOpenMenu() {
     key: "Escape",
     code: "Escape",
   }));
+}
+
+function resolvePromptVariables(prompt) {
+  const values = promptVariableValues();
+  return String(prompt || "").replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g, (match, key) => {
+    return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+  });
+}
+
+function promptVariableValues() {
+  const now = new Date();
+  const cwd = detectCwd();
+  const branch = detectBranch();
+  const repo = detectRepo(cwd);
+  return {
+    repo,
+    branch,
+    cwd,
+    date: now.toLocaleDateString(),
+    time: now.toLocaleTimeString(),
+    datetime: now.toLocaleString(),
+    url: window.location.href,
+    title: document.title || "",
+    selectedText: window.getSelection?.()?.toString?.() || "",
+  };
+}
+
+function detectCwd() {
+  const text = document.body.textContent || "";
+  const cwdMatch = text.match(/(?:cwd|workspace|project|repo|repository|root)[:\s]+((?:~|\/)[^\n\r,;]+)/i);
+  if (cwdMatch?.[1]) return cwdMatch[1].trim();
+
+  const pathMatch = document.body.textContent?.match(/(?:~|\/Users\/|\/home\/|\/workspace\/)[^\n\r\t"]+/);
+  return pathMatch?.[0]?.trim() || "";
+}
+
+function detectRepo(cwd) {
+  if (cwd) {
+    const parts = cwd.split("/").filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+
+  const title = document.title || "";
+  const titleMatch = title.match(/^([^|—-]+)/);
+  return titleMatch?.[1]?.trim() || "";
+}
+
+function detectBranch() {
+  const candidates = Array.from(document.querySelectorAll("button, [role='button'], [aria-label], span, div"))
+    .filter((node) => node instanceof HTMLElement)
+    .map((node) => String(node.getAttribute("aria-label") || node.textContent || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  for (const label of candidates) {
+    const branchMatch = label.match(/\bbranch[:\s]+([a-z0-9._/-]+)/i);
+    if (branchMatch?.[1]) return branchMatch[1];
+  }
+
+  const pageText = normalizeLabel(document.body);
+  const gitMatch = pageText.match(/\b(?:on|current)\s+branch\s+([a-z0-9._/-]+)/i);
+  return gitMatch?.[1] || "";
 }
 
 function waitForComposer(timeoutMs) {
