@@ -697,7 +697,8 @@ function iconPickerInput(value, onSelect) {
   const wrap = el("div", "flex flex-col gap-2");
   const summary = el("div", "text-token-text-secondary text-xs");
   summary.textContent = `Selected: ${iconLabel(selected)}`;
-  const grid = el("div", "grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5");
+  const grid = el("div", "grid gap-1.5");
+  grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(40px, 40px))";
 
   for (const option of ICON_OPTIONS) {
     const button = document.createElement("button");
