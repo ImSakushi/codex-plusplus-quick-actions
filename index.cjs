@@ -694,7 +694,10 @@ function textareaInput(value, placeholder) {
 
 function iconPickerInput(value, onSelect) {
   const selected = ICON_OPTIONS.some((option) => option.value === value) ? value : "spark";
-  const grid = el("div", "grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4");
+  const wrap = el("div", "flex flex-col gap-2");
+  const summary = el("div", "text-token-text-secondary text-xs");
+  summary.textContent = `Selected: ${iconLabel(selected)}`;
+  const grid = el("div", "grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5");
 
   for (const option of ICON_OPTIONS) {
     const button = document.createElement("button");
@@ -706,9 +709,7 @@ function iconPickerInput(value, onSelect) {
 
     const icon = createActionIcon(option.value);
     icon.classList.add("shrink-0");
-    const label = el("span", "min-w-0 truncate text-xs");
-    label.textContent = option.label;
-    button.append(icon, label);
+    button.appendChild(icon);
 
     button.addEventListener("click", () => {
       for (const item of grid.querySelectorAll("button")) {
@@ -716,33 +717,40 @@ function iconPickerInput(value, onSelect) {
         item.setAttribute("aria-pressed", String(isSelected));
         item.className = iconChoiceClass(isSelected);
       }
+      summary.textContent = `Selected: ${option.label}`;
       onSelect?.(option.value);
     });
 
     grid.appendChild(button);
   }
 
-  return grid;
+  wrap.append(summary, grid);
+  return wrap;
 }
 
 function iconChoiceClass(selected) {
   return [
     "border-token-border",
     "inline-flex",
-    "h-10",
-    "min-w-0",
+    "h-9",
+    "w-10",
     "items-center",
-    "gap-2",
+    "justify-center",
     "rounded-md",
     "border",
-    "px-2",
-    "text-left",
     "text-token-text-primary",
     "cursor-interaction",
+    "focus-visible:outline-none",
+    "focus-visible:ring-2",
+    "focus-visible:ring-token-focus-border",
     selected
       ? "bg-token-charts-blue/10 text-token-charts-blue ring-1 ring-token-charts-blue/40"
       : "bg-token-foreground/5 hover:bg-token-foreground/10",
   ].join(" ");
+}
+
+function iconLabel(value) {
+  return ICON_OPTIONS.find((option) => option.value === value)?.label || "Spark";
 }
 
 function inputClassName() {
