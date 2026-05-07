@@ -40,17 +40,29 @@ const ICON_OPTIONS = [
   { value: "commit", label: "Commit" },
   { value: "branch", label: "Branch" },
   { value: "merge", label: "Merge" },
+  { value: "diff", label: "Diff" },
+  { value: "pr", label: "Pull request" },
+  { value: "github", label: "GitHub" },
   { value: "tag", label: "Tag" },
   { value: "review", label: "Review" },
+  { value: "check", label: "Check" },
   { value: "terminal", label: "Terminal" },
   { value: "bug", label: "Bug" },
   { value: "test", label: "Test" },
   { value: "file", label: "File" },
+  { value: "docs", label: "Docs" },
   { value: "search", label: "Search" },
+  { value: "database", label: "Database" },
+  { value: "wrench", label: "Fix" },
+  { value: "broom", label: "Clean" },
   { value: "rocket", label: "Rocket" },
   { value: "shield", label: "Shield" },
+  { value: "lock", label: "Lock" },
+  { value: "undo", label: "Undo" },
+  { value: "settings", label: "Settings" },
   { value: "package", label: "Package" },
   { value: "cloud", label: "Cloud" },
+  { value: "sync", label: "Sync" },
   { value: "spark", label: "Spark" },
 ];
 const ICON_SVG_PATHS = {
@@ -75,12 +87,23 @@ const ICON_SVG_PATHS = {
     '<path d="M6.5 4.5v4a5 5 0 0 0 5 5h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '<path d="M11.25 10.75 14 13.5l-2.75 2.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
     '<circle cx="6.5" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>',
+  diff:
+    '<path d="M5 5h5M5 10h10M5 15h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M13.5 3.75v3.5M11.75 5.5h3.5M13.5 12.75v3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  pr:
+    '<path d="M6 5v8.5a2.5 2.5 0 0 0 2.5 2.5h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M11.25 13.25 14 16l-2.75 2.75M14 16V8.5A2.5 2.5 0 0 0 11.5 6H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<circle cx="6" cy="4.5" r="1.75" stroke="currentColor" stroke-width="1.5"/>',
+  github:
+    '<path d="M10 2.75a7.25 7.25 0 0 0-2.3 14.13c.36.07.5-.16.5-.35v-1.25c-2.05.45-2.48-.88-2.48-.88-.33-.85-.82-1.08-.82-1.08-.68-.46.05-.45.05-.45.75.05 1.15.78 1.15.78.67 1.14 1.75.81 2.18.62.07-.48.26-.81.48-1-1.64-.18-3.36-.82-3.36-3.64 0-.8.29-1.46.77-1.98-.08-.19-.33-.94.07-1.95 0 0 .62-.2 2.05.75A7.05 7.05 0 0 1 10 4.93c.63 0 1.27.08 1.86.25 1.42-.95 2.05-.75 2.05-.75.4 1.01.15 1.76.07 1.95.48.52.77 1.18.77 1.98 0 2.83-1.72 3.45-3.36 3.64.27.23.51.68.51 1.37v2.16c0 .19.13.42.51.35A7.25 7.25 0 0 0 10 2.75Z" fill="currentColor"/>',
   tag:
     '<path d="M4 5.5a1.5 1.5 0 0 1 1.5-1.5h4.1c.4 0 .78.16 1.06.44l5.1 5.1a1.5 1.5 0 0 1 0 2.12l-3.6 3.6a1.5 1.5 0 0 1-2.12 0l-5.1-5.1A1.5 1.5 0 0 1 4.5 9.1V5.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
     '<circle cx="7.25" cy="7.25" r=".75" fill="currentColor"/>',
   review:
     '<path d="M8.75 14.25a5.5 5.5 0 1 1 3.89-1.61L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
     '<path d="M6.5 8.75l1.5 1.5 3-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  check:
+    '<path d="M4 10.25 8.25 14.5 16 5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
   terminal:
     '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9Z" stroke="currentColor" stroke-width="1.5"/>' +
     '<path d="m6.5 8 2 2-2 2M10.5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -93,19 +116,45 @@ const ICON_SVG_PATHS = {
   file:
     '<path d="M5 3.5h5.5L15 8v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
     '<path d="M10.5 3.5V8H15" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+  docs:
+    '<path d="M5 3.5h6l4 4v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M11 3.5V7.5H15M6 10.5h6M6 13.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
   search:
     '<path d="M8.75 14.25a5.5 5.5 0 1 1 3.89-1.61L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  database:
+    '<ellipse cx="10" cy="5" rx="5.5" ry="2.25" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M4.5 5v5c0 1.25 2.46 2.25 5.5 2.25s5.5-1 5.5-2.25V5M4.5 10v5c0 1.25 2.46 2.25 5.5 2.25s5.5-1 5.5-2.25v-5" stroke="currentColor" stroke-width="1.5"/>',
+  wrench:
+    '<path d="M12.25 3.75a4 4 0 0 0 4.1 4.1l-7.7 7.7a2.2 2.2 0 1 1-3.1-3.1l7.7-7.7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M5.75 14.25h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  broom:
+    '<path d="M12.5 3.5 16 7l-7.5 7.5L5 11l7.5-7.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M4 12l4 4M3.5 16.5h6M5.5 14.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
   rocket:
     '<path d="M11.5 4.25c1.6-.7 3.05-.78 4.25-.5.28 1.2.2 2.65-.5 4.25-.75 1.72-2.15 3.35-4.05 4.7l-3.9-3.9c1.35-1.9 2.98-3.3 4.2-4.55Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
     '<path d="M7.25 9 5.5 9.25 4 12l2.75-.5M11 12.75 10.75 14.5 8 16l.5-2.75M12.75 6.75h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
   shield:
     '<path d="M10 3.5 15 5.25v3.9c0 3.15-1.85 5.95-5 7.35-3.15-1.4-5-4.2-5-7.35v-3.9L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
     '<path d="m7.75 10 1.5 1.5 3-3.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  lock:
+    '<path d="M6 8.5V6.75a4 4 0 0 1 8 0V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<rect x="4" y="8.5" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M10 12v1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  undo:
+    '<path d="M7.5 6H4v-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M4.25 6A6.5 6.5 0 1 1 3.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  settings:
+    '<path d="M10 7.25a2.75 2.75 0 1 1 0 5.5 2.75 2.75 0 0 1 0-5.5Z" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M10 3v2M10 15v2M4.25 6.25 5.7 7.7M14.3 12.3l1.45 1.45M3 10h2M15 10h2M4.25 13.75 5.7 12.3M14.3 7.7l1.45-1.45" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
   package:
     '<path d="M10 3.5 15.5 6.5v6.5L10 16.5 4.5 13V6.5L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
     '<path d="M4.75 6.75 10 9.75l5.25-3M10 9.75v6.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
   cloud:
     '<path d="M6.75 14.5h6.75a3 3 0 0 0 .4-5.97 4.5 4.5 0 0 0-8.65 1.2A2.4 2.4 0 0 0 6.75 14.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  sync:
+    '<path d="M15.5 7.25A5.75 5.75 0 0 0 5.2 5.2L4 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M4 3.5v3h3M4.5 12.75a5.75 5.75 0 0 0 10.3 2.05L16 13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '<path d="M16 16.5v-3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
   spark:
     '<path d="M10 3.5 11.4 8.6 16.5 10l-5.1 1.4L10 16.5l-1.4-5.1L3.5 10l5.1-1.4L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
 };
