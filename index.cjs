@@ -498,11 +498,7 @@ function renderSettingsPage(root, state) {
 
   const toolbar = el("div", "flex flex-wrap items-center gap-2");
   toolbar.append(
-    settingsButton("Add action", "primary", () => {
-      const action = createBlankAction();
-      state.editingActionId = action.id;
-      refreshActions(state, [...state.actionDefs, action]);
-    }),
+    settingsButton("Add action", "primary", () => addAction(state)),
     settingsButton("Export JSON", "ghost", () => exportActions(state)),
     settingsButton("Import JSON", "ghost", () => openImportPicker(state)),
     settingsButton("Reset defaults", "danger", () => {
@@ -532,6 +528,7 @@ function renderSettingsPage(root, state) {
     card.appendChild(actionSettingsRow(state, action, index));
   });
   section.appendChild(card);
+  section.appendChild(bottomAddActionButton(state));
   root.appendChild(section);
 }
 
@@ -668,6 +665,26 @@ function deleteAction(state, id) {
   refreshActions(state, state.actionDefs.filter((action) => action.id !== id));
 }
 
+function addAction(state) {
+  const action = createBlankAction();
+  state.editingActionId = action.id;
+  refreshActions(state, [...state.actionDefs, action]);
+}
+
+function bottomAddActionButton(state) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className =
+    "border-token-border text-token-text-primary hover:bg-token-foreground/10 " +
+    "flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-token-foreground/5 text-sm cursor-interaction";
+  button.innerHTML =
+    '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">' +
+    '<path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+    '</svg><span>Add action</span>';
+  button.addEventListener("click", () => addAction(state));
+  return button;
+}
+
 async function exportActions(state) {
   const payload = JSON.stringify({
     quickActions: true,
@@ -705,11 +722,33 @@ async function importActionsFromFile(state, input) {
     const actions = Array.isArray(parsed) ? parsed : parsed?.actions;
     if (!Array.isArray(actions)) throw new Error("No actions array found");
     state.editingActionId = null;
-    refreshActions(state, actions);
+    refreshActions(state, mergeImportedActions(state.actionDefs, actions));
   } catch (error) {
     state.api.log.warn("[quick-actions] import failed", error);
     window.alert?.(`Quick Actions import failed: ${error?.message || String(error)}`);
   }
+}
+
+function mergeImportedActions(currentActions, importedActions) {
+  const currentIds = new Set(currentActions.map((action) => action.id));
+  const importedById = new Map();
+  const newActionOrder = [];
+  const newActionsById = new Map();
+
+  for (const rawAction of normalizeActionDefs(importedActions)) {
+    if (currentIds.has(rawAction.id)) {
+      importedById.set(rawAction.id, rawAction);
+      continue;
+    }
+
+    if (!newActionsById.has(rawAction.id)) newActionOrder.push(rawAction.id);
+    newActionsById.set(rawAction.id, rawAction);
+  }
+
+  return [
+    ...currentActions.map((action) => importedById.get(action.id) || action),
+    ...newActionOrder.map((id) => newActionsById.get(id)),
+  ];
 }
 
 function duplicateAction(state, id) {

@@ -1,7 +1,7 @@
 {
   "id": "com.imsakushi.quick-actions",
   "name": "Quick Actions",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "githubRepo": "ImSakushi/codex-plusplus-quick-actions",
   "description": "Custom workflow actions for Codex's Git panel.",
   "author": {

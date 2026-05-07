@@ -10,7 +10,7 @@ Each action opens a new Codex conversation and sends the prompt you configured. 
 - Configure each action's title, prompt, icon, and send mode
 - Use prompt variables like `{repo}`, `{branch}`, `{cwd}`, `{date}`, and `{selectedText}`
 - Reorder with drag and drop, duplicate, edit, delete, and reset actions from Codex++ settings
-- Import and export action presets as JSON
+- Import and export action presets as JSON; imports merge by action id
 - Persist actions through Codex++ tweak storage
 - Built-in defaults for Git pull, multi-commit push, and code review
 
