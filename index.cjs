@@ -10,32 +10,86 @@ const FALLBACK_PANEL_ATTR = "data-codexpp-quick-actions-fallback-panel";
 const STYLE_ATTR = "data-codexpp-quick-actions-style";
 const ACTIONS_STORAGE_KEY = "actions";
 const EXPORT_VERSION = 1;
-const CREATE_PR_LABEL = "create pull request";
+const CREATE_PR_LABEL_MARKERS = [
+  "create pull request",
+  "create pr",
+  "open pull request",
+  "open pr",
+  "créer une pull request",
+  "creer une pull request",
+  "créer une pr",
+  "creer une pr",
+  "ouvrir une pull request",
+  "ouvrir une pr",
+];
+const BRANCH_DETAILS_MARKERS = [
+  "branch details",
+  "détails de branche",
+  "details de branche",
+  "détails de la branche",
+  "details de la branche",
+];
+const CHANGES_MARKERS = ["changes", "modifications", "changements"];
+const GIT_ACTION_MARKERS = ["git actions", "actions git"];
 const MENU_MARKERS = ["branch details", "changes", "git actions"];
+const NATIVE_SUMMARY_PANEL_CLASS_MARKER = "group/summary-panel";
+const CONVERSATION_TARGET_OPTIONS = [
+  { value: "new", label: "New conversation" },
+  { value: "current", label: "Current conversation" },
+];
 const DEFAULT_ACTIONS = [
   {
     id: "git-pull",
     label: "Git pull",
     icon: "pull",
     mode: "confirm",
+    conversationTarget: "new",
     prompt:
-      "git pull le repo, s'il y a des conflits, arrête le pull et signale les moi et explique le moi en me disant exactement quelle feature bloque avec laquelle et propose une solution propre",
+      "Pull the latest changes for this repo. If conflicts or merge issues appear, stop before resolving them, explain which local work conflicts with which incoming changes, and suggest a clean resolution plan.",
   },
   {
     id: "multi-commit-and-push",
     label: "Multi commit and push",
     icon: "commit",
     mode: "auto",
+    conversationTarget: "new",
     prompt:
-      "commit and push all the files, create multiple commits to differenciate each features. commit in english with prefix",
+      "Review all local changes, split them into focused commits by feature or concern, write concise English commit messages with conventional prefixes, then push the branch.",
   },
   {
     id: "code-review",
     label: "Code review",
     icon: "review",
     mode: "auto",
-    prompt:
-      "[$review-uncommitted-json-fr](/Users/adriendevoe/.codex/skills/review-uncommitted-json-fr/SKILL.md) ",
+    conversationTarget: "new",
+    prompt: `## Code review guidelines:
+# Review Guidelines
+
+You are acting as a reviewer for a proposed code change made by another engineer.
+
+Review the change and respond in normal Markdown. Do not return JSON, XML, a findings object, or any structured review schema.
+
+When feedback should be attached directly to a changed line, emit one \`::code-comment{...}\` directive for that issue. The directive creates an inline code comment in the review UI; keep the visible response as normal Markdown. Emit no directives when there are no actionable inline comments.
+
+Required \`code-comment\` attributes: \`title\`, \`body\`, and \`file\`. Optional attributes: \`start\`, \`end\`, and \`priority\`. Use the shortest useful line range. \`file\` should be an absolute path or include the workspace folder segment.
+
+Focus on discrete, actionable issues the original author would likely fix if they knew about them. Prefer no issues over speculative or low-signal feedback.
+
+General guidelines for whether to call out an issue:
+
+1. It meaningfully impacts correctness, performance, security, or maintainability.
+2. It is discrete and actionable.
+3. It was introduced by the change under review.
+4. The author would likely fix it once aware.
+5. It does not rely on unstated assumptions about intent.
+6. It identifies the affected behavior clearly rather than speculating broadly.
+
+When you call out an issue, include the relevant file and line or function in prose, explain the scenario where it matters, and keep the explanation concise. Use priority labels such as \`[P1]\` or \`[P2]\` only when helpful to communicate severity.
+
+If there are no actionable issues, say that directly and briefly.
+Review the current code changes (staged, unstaged, and untracked files) and provide concise, actionable feedback in a normal Markdown response.
+## My request for Codex:
+Please review my uncommitted changes`,
   },
 ];
 const ICON_OPTIONS = [
@@ -232,7 +286,7 @@ function scheduleInstall(state) {
 function installGitMenuAction(state) {
   const anchors = Array.from(document.querySelectorAll("button, [role='menuitem'], [role='option'], a"))
     .filter((node) => node instanceof HTMLElement)
-    .filter((node) => normalizeLabel(node).includes(CREATE_PR_LABEL));
+    .filter((node) => labelHasCreatePrAction(normalizeLabel(node)));
 
   for (const anchor of anchors) {
     const menu = findMenuContainer(anchor);
@@ -302,9 +356,16 @@ function ensureFallbackThreadSummaryPanel(state) {
   const hasCreatePrEntry = Array.from(document.querySelectorAll("button, [role='menuitem'], [role='option'], a"))
     .filter((node) => node instanceof HTMLElement)
     .filter((node) => !node.closest(`[${FALLBACK_PANEL_ATTR}]`) && !node.hasAttribute(THREAD_SUMMARY_PANEL_ATTR))
-    .some((node) => isVisibleControl(node) && normalizeLabel(node).includes(CREATE_PR_LABEL));
+    .some((node) => isVisibleControl(node) && labelHasCreatePrAction(normalizeLabel(node)));
+  const hasNativeThreadSummaryPanel = findNativeThreadSummaryPanel() != null;
 
-  if (actions.length === 0 || hasNativeMenuAction || hasCreatePrEntry || !shouldShowFallbackThreadSummaryPanel(state)) {
+  if (
+    actions.length === 0 ||
+    hasNativeMenuAction ||
+    hasCreatePrEntry ||
+    hasNativeThreadSummaryPanel ||
+    !shouldShowFallbackThreadSummaryPanel(state)
+  ) {
     removeFallbackThreadSummaryPanel(state);
     return;
   }
@@ -359,16 +420,94 @@ function ensureFallbackThreadSummaryPanel(state) {
 function rememberGitContextFromNativeUi(state) {
   if (state.sawGitContext) return;
 
-  const hasNativeBranchDetails = Array.from(document.querySelectorAll("section, aside, div"))
-    .filter((node) => node instanceof HTMLElement)
-    .some((node) => {
-      if (node.closest(`[${FALLBACK_PANEL_ATTR}]`) || !isVisibleControl(node)) return false;
-      const label = normalizeLabel(node);
-      return label.includes("branch details") &&
-        (label.includes("git actions") || label.includes(CREATE_PR_LABEL));
-    });
+  const hasNativeBranchDetails = findNativeThreadSummaryPanel() != null;
 
   if (hasNativeBranchDetails) state.sawGitContext = true;
+}
+
+function findNativeThreadSummaryPanel() {
+  return findNativeSummaryPanelRoot() || findNativeGitActionsTrigger() || findNativeGitActionsSection();
+}
+
+function findNativeSummaryPanelRoot() {
+  return Array.from(document.querySelectorAll("div"))
+    .filter((node) => node instanceof HTMLElement)
+    .find((node) => {
+      if (node.closest(`[${FALLBACK_PANEL_ATTR}]`) || !isRenderedNode(node)) return false;
+      const className = String(node.getAttribute("class") || "");
+      return className.includes(NATIVE_SUMMARY_PANEL_CLASS_MARKER);
+    }) || null;
+}
+
+function findNativeGitActionsTrigger() {
+  return Array.from(document.querySelectorAll("button, [role='button'], [role='menuitem'], [role='option'], a"))
+    .filter((node) => node instanceof HTMLElement)
+    .find((node) => {
+      if (node.closest(`[${FALLBACK_PANEL_ATTR}]`) || !isRenderedNode(node)) return false;
+      return labelHasAny(normalizeControlLabel(node), GIT_ACTION_MARKERS);
+    }) || null;
+}
+
+function findNativeGitActionsSection() {
+  return Array.from(document.querySelectorAll("section"))
+    .filter((node) => node instanceof HTMLElement)
+    .find((node) => {
+      if (node.closest(`[${FALLBACK_PANEL_ATTR}]`) || !isRenderedNode(node)) return false;
+      const label = normalizePanelLabel(node);
+      return label.length <= 1200 &&
+        labelHasAny(label, BRANCH_DETAILS_MARKERS) &&
+        labelHasAny(label, GIT_ACTION_MARKERS);
+    }) || null;
+}
+
+function isRenderedNode(node) {
+  if (!(node instanceof HTMLElement)) return false;
+  if (node.hidden || node.getAttribute("aria-hidden") === "true") return false;
+  const style = window.getComputedStyle(node);
+  return style.display !== "none" && style.visibility !== "hidden";
+}
+
+function labelHasCreatePrAction(label) {
+  return labelHasAny(label, CREATE_PR_LABEL_MARKERS);
+}
+
+function labelHasAny(label, markers) {
+  return markers.some((marker) => label.includes(marker));
+}
+
+function normalizeControlLabel(node) {
+  return normalizeSearchText([
+    node.getAttribute("aria-label") ||
+      "",
+    node.getAttribute("title") ||
+      "",
+    node.getAttribute("data-testid") ||
+      "",
+    node.textContent ||
+      "",
+  ].join(" "));
+}
+
+function normalizePanelLabel(node) {
+  return normalizeSearchText([
+    node.getAttribute("aria-label") ||
+      "",
+    node.getAttribute("title") ||
+      "",
+    node.getAttribute("data-testid") ||
+      "",
+    node.textContent ||
+      "",
+  ].join(" "));
+}
+
+function normalizeSearchText(value) {
+  return String(value)
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function shouldShowFallbackThreadSummaryPanel(state) {
@@ -493,7 +632,7 @@ function renderSettingsPage(root, state) {
   const section = el("section", "flex flex-col gap-3");
   section.appendChild(settingsTitle(
     "Actions",
-    "Create the custom options shown in the Thread Summary Panel. Each action opens a new conversation and sends its prompt.",
+    "Create the custom options shown in the Thread Summary Panel. Choose whether each action starts fresh or continues the current conversation.",
   ));
 
   const toolbar = el("div", "flex flex-wrap items-center gap-2");
@@ -597,7 +736,11 @@ function actionSettingsRow(state, action, index) {
   title.textContent = actionDisplayLabel(action);
   const prompt = el("div", "text-token-text-secondary min-w-0 truncate text-xs");
   prompt.textContent = action.prompt || "No prompt configured.";
-  text.append(title, prompt);
+  const meta = el("div", "flex min-w-0 items-center gap-2 text-xs text-token-text-secondary");
+  const target = el("span", "shrink-0 rounded-full border border-token-border bg-token-foreground/5 px-2 py-0.5");
+  target.textContent = conversationTargetLabel(action.conversationTarget);
+  meta.append(target, prompt);
+  text.append(title, meta);
   left.append(icon, text);
 
   const controls = el("div", "flex shrink-0 items-center gap-1");
@@ -625,6 +768,11 @@ function actionEditor(state, action) {
     updateAction(state, action.id, { icon });
   });
   const promptInput = textareaInput(action.prompt, "Prompt");
+  const conversationTarget = segmentedControl(
+    CONVERSATION_TARGET_OPTIONS,
+    action.conversationTarget,
+    (value) => updateAction(state, action.id, { conversationTarget: value }),
+  );
   const modeToggle = switchControl(action.mode === "confirm", (checked) => {
     updateAction(state, action.id, { mode: checked ? "confirm" : "auto" });
   });
@@ -640,8 +788,13 @@ function actionEditor(state, action) {
     settingsField("Title", titleInput),
     settingsField("Logo", iconPicker),
     settingRow(
+      "Conversation",
+      "Choose where this prompt should run.",
+      conversationTarget,
+    ),
+    settingRow(
       "Confirmation before send",
-      "When enabled, Quick Actions opens the new conversation and fills the prompt without submitting it.",
+      "When enabled, Quick Actions fills the prompt without submitting it.",
       modeToggle,
     ),
     variablesHint(),
@@ -800,6 +953,7 @@ function normalizeActionDef(value) {
   const fallback = createBlankAction();
   const iconValues = new Set(ICON_OPTIONS.map((option) => option.value));
   const mode = value?.mode === "confirm" ? "confirm" : "auto";
+  const conversationTarget = value?.conversationTarget === "current" ? "current" : "new";
   const id = typeof value?.id === "string" && value.id.trim()
     ? value.id.trim()
     : fallback.id;
@@ -807,7 +961,7 @@ function normalizeActionDef(value) {
   const prompt = typeof value?.prompt === "string" ? value.prompt : "";
   const icon = iconValues.has(value?.icon) ? value.icon : "spark";
 
-  return { id, label, prompt, icon, mode };
+  return { id, label, prompt, icon, mode, conversationTarget };
 }
 
 function runnableActionDefs(state) {
@@ -824,6 +978,7 @@ function createBlankAction() {
     label: "New action",
     icon: "spark",
     mode: "auto",
+    conversationTarget: "new",
     prompt: "",
   };
 }
@@ -908,7 +1063,7 @@ function settingsField(label, control) {
 }
 
 function settingRow(label, description, control) {
-  const row = el("div", "flex items-center justify-between gap-4 rounded-md border border-token-border bg-token-foreground/5 p-3");
+  const row = el("div", "flex flex-wrap items-center justify-between gap-4 rounded-md border border-token-border bg-token-foreground/5 p-3");
   const left = el("div", "flex min-w-0 flex-col gap-1");
   const title = el("div", "text-sm text-token-text-primary");
   title.textContent = label;
@@ -956,6 +1111,61 @@ function switchControl(initial, onChange) {
     onChange?.(next);
   });
   return btn;
+}
+
+function segmentedControl(options, value, onChange) {
+  const wrap = el(
+    "div",
+    "border-token-border bg-token-foreground/5 inline-grid shrink-0 grid-flow-col gap-0.5 rounded-md border p-0.5",
+  );
+  wrap.setAttribute("role", "radiogroup");
+
+  const apply = (selectedValue) => {
+    for (const button of wrap.querySelectorAll("button")) {
+      const selected = button.dataset.value === selectedValue;
+      button.setAttribute("aria-checked", String(selected));
+      button.className = segmentedButtonClass(selected);
+    }
+  };
+
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.value = option.value;
+    button.setAttribute("role", "radio");
+    button.textContent = option.label;
+    button.addEventListener("click", () => {
+      apply(option.value);
+      onChange?.(option.value);
+    });
+    wrap.appendChild(button);
+  }
+
+  apply(options.some((option) => option.value === value) ? value : options[0]?.value);
+  return wrap;
+}
+
+function segmentedButtonClass(selected) {
+  return [
+    "h-token-button-composer",
+    "rounded-[calc(var(--radius-md,0.375rem)-2px)]",
+    "px-3",
+    "text-sm",
+    "font-medium",
+    "transition-colors",
+    "cursor-interaction",
+    "focus-visible:outline-none",
+    "focus-visible:ring-2",
+    "focus-visible:ring-token-focus-border",
+    selected
+      ? "bg-token-foreground/10 text-token-text-primary shadow-sm ring-1 ring-token-border"
+      : "text-token-text-secondary hover:bg-token-foreground/10 hover:text-token-text-primary",
+  ].join(" ");
+}
+
+function conversationTargetLabel(value) {
+  return CONVERSATION_TARGET_OPTIONS.find((option) => option.value === value)?.label ||
+    CONVERSATION_TARGET_OPTIONS[0].label;
 }
 
 function textInput(value, placeholder) {
@@ -1165,8 +1375,14 @@ function findMenuContainer(anchor) {
       node.hasAttribute("data-radix-popper-content-wrapper");
     const text = normalizeLabel(node);
     const hasMenuMarkers = MENU_MARKERS.every((marker) => text.includes(marker));
+    const hasCurrentMenuMarkers = labelHasAny(text, BRANCH_DETAILS_MARKERS) &&
+      labelHasAny(text, CHANGES_MARKERS) &&
+      labelHasCreatePrAction(text);
 
-    if ((role === "menu" || radix || hasMenuMarkers) && hasMenuMarkers) {
+    if (
+      (role === "menu" || radix || hasMenuMarkers || hasCurrentMenuMarkers) &&
+      (hasMenuMarkers || hasCurrentMenuMarkers)
+    ) {
       return node;
     }
   }
@@ -1184,13 +1400,15 @@ async function runPromptAction(state, def) {
   closeOpenMenu();
   await sleep(80);
 
-  const startedUrl = window.location.href;
-  const newChat = findNewChatButton();
-  if (newChat) {
-    newChat.click();
-    await waitForNewChatSurface(startedUrl, 2500);
-  } else {
-    state.api.log.warn("[quick-actions] new chat button not found; using active composer");
+  if (def.conversationTarget !== "current") {
+    const startedUrl = window.location.href;
+    const newChat = findNewChatButton();
+    if (newChat) {
+      newChat.click();
+      await waitForNewChatSurface(startedUrl, 2500);
+    } else {
+      state.api.log.warn("[quick-actions] new chat button not found; using active composer");
+    }
   }
 
   const composer = await waitForComposer(5000);
