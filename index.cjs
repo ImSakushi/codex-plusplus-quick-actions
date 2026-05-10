@@ -8,6 +8,7 @@ const ACTION_ATTR = "data-codexpp-quick-actions-action";
 const THREAD_SUMMARY_PANEL_ATTR = "data-codexpp-quick-actions-thread-summary-panel";
 const FALLBACK_PANEL_ATTR = "data-codexpp-quick-actions-fallback-panel";
 const STYLE_ATTR = "data-codexpp-quick-actions-style";
+const FOLLOWUP_PANEL_ATTR = "data-soren-radar-panel";
 const ACTIONS_STORAGE_KEY = "actions";
 const EXPORT_VERSION = 1;
 const CREATE_PR_LABEL_MARKERS = [
@@ -1729,14 +1730,22 @@ function findSubmitButton(roots, target) {
     .flatMap((root) => Array.from(root.querySelectorAll("button")))
     .filter((button) => button instanceof HTMLButtonElement && isUsableSubmitButton(button))
     .map((button) => ({ button, score: scoreSubmitButton(button, target) }))
-    .filter((entry) => entry.score > 20);
+    .filter((entry) => entry.score > 20 && isLikelySubmitButton(entry.button));
 
   ranked.sort((a, b) => b.score - a.score);
   return ranked[0]?.button || null;
 }
 
 function isUsableSubmitButton(button) {
-  if (button.disabled || button.closest("[data-codexpp-app-pages='panel']")) return false;
+  if (
+    button.disabled ||
+    button.closest("[data-codexpp-app-pages='panel']") ||
+    button.closest(`[${FOLLOWUP_PANEL_ATTR}]`) ||
+    button.closest(`[${THREAD_SUMMARY_PANEL_ATTR}]`) ||
+    button.hasAttribute(ACTION_ATTR)
+  ) {
+    return false;
+  }
 
   const rect = button.getBoundingClientRect();
   const style = window.getComputedStyle(button);
@@ -1747,18 +1756,15 @@ function isUsableSubmitButton(button) {
     button.getAttribute("aria-disabled") !== "true";
 }
 
+function isLikelySubmitButton(button) {
+  if (button.type === "submit") return true;
+  return /send|submit|envoyer|arrow-up|paper-airplane/i.test(buttonLabel(button));
+}
+
 function scoreSubmitButton(button, target) {
   const rect = button.getBoundingClientRect();
   const targetRect = target?.getBoundingClientRect?.();
-  const haystack = [
-    button.type,
-    button.id,
-    button.className,
-    button.textContent,
-    button.getAttribute("aria-label"),
-    button.getAttribute("title"),
-    button.getAttribute("data-testid"),
-  ].join(" ");
+  const haystack = buttonLabel(button);
 
   let score = 0;
   if (button.type === "submit") score += 35;
@@ -1776,6 +1782,18 @@ function scoreSubmitButton(button, target) {
 
   score += Math.min(10, Math.max(0, rect.bottom / 100));
   return score;
+}
+
+function buttonLabel(button) {
+  return [
+    button.type,
+    button.id,
+    button.className,
+    button.textContent,
+    button.getAttribute("aria-label"),
+    button.getAttribute("title"),
+    button.getAttribute("data-testid"),
+  ].join(" ");
 }
 
 async function copyPromptFallback(prompt) {
