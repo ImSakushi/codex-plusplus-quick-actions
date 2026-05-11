@@ -2,7 +2,7 @@
 
 ![Quick Actions settings and Git panel actions](assets/quick-actions.jpg)
 
-Quick Actions is a Codex++ tweak that adds customizable workflow actions to Codex's Git panel.
+Quick Actions is a [Codex++](https://github.com/b-nnett/codex-plusplus) tweak that adds customizable workflow actions to Codex's Git panel.
 
 Each action can either open a new Codex conversation or run in the current conversation, then send the prompt you configured. It also keeps a right-edge fallback for Codex's Thread Summary Panel when Codex does not render the native panel on fresh project threads.
 
