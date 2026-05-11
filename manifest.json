@@ -10,5 +10,5 @@
   "tags": ["git", "workflow", "productivity"],
   "scope": "renderer",
   "main": "index.cjs",
-  "iconUrl": "./icon.png"
+  "iconUrl": "https://raw.githubusercontent.com/ImSakushi/codex-plusplus-quick-actions/main/icon.png"
 }
