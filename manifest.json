@@ -9,5 +9,6 @@
   },
   "tags": ["git", "workflow", "productivity"],
   "scope": "renderer",
-  "main": "index.cjs"
+  "main": "index.cjs",
+  "iconUrl": "./icon.png"
 }
