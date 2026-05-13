@@ -10,6 +10,7 @@ const FALLBACK_PANEL_ATTR = "data-codexpp-quick-actions-fallback-panel";
 const STYLE_ATTR = "data-codexpp-quick-actions-style";
 const FOLLOWUP_PANEL_ATTR = "data-soren-radar-panel";
 const ACTIONS_STORAGE_KEY = "actions";
+const RUNNING_ACTIONS_KEY = "__codexppQuickActionsRunningActionIds";
 const EXPORT_VERSION = 1;
 const CREATE_PR_LABEL_MARKERS = [
   "create pull request",
@@ -235,6 +236,7 @@ module.exports = {
       editingActionId: null,
       draggedActionId: null,
       importInput: null,
+      runningActionIds: globalRunningActionIds(),
     };
     this._state = state;
 
@@ -1289,14 +1291,14 @@ function attachMenuActionHandlers(action, onClick) {
   action.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    onClick();
+    onClick(action);
   });
 
   action.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     event.stopPropagation();
-    onClick();
+    onClick(action);
   });
 }
 
@@ -1397,43 +1399,66 @@ function normalizeLabel(node) {
     .toLowerCase();
 }
 
+function globalRunningActionIds() {
+  if (!window[RUNNING_ACTIONS_KEY]) window[RUNNING_ACTIONS_KEY] = new Set();
+  return window[RUNNING_ACTIONS_KEY];
+}
+
 async function runPromptAction(state, def) {
-  closeOpenMenu();
-  await sleep(80);
-
-  if (def.conversationTarget !== "current") {
-    const startedUrl = window.location.href;
-    const newChat = findNewChatButton();
-    if (newChat) {
-      newChat.click();
-      await waitForNewChatSurface(startedUrl, 2500);
-    } else {
-      state.api.log.warn("[quick-actions] new chat button not found; using active composer");
-    }
-  }
-
-  const composer = await waitForComposer(5000);
-  if (!composer) {
-    state.api.log.warn("[quick-actions] no active composer found");
-    await copyPromptFallback(resolvePromptVariables(def.prompt));
+  const runKey = String(def.id || actionDisplayLabel(def));
+  if (state.runningActionIds.has(runKey)) {
+    state.api.log.warn("[quick-actions] action already running; ignoring duplicate activation", { id: def.id });
     return;
   }
 
-  const prompt = resolvePromptVariables(def.prompt);
-  fillComposer(composer, prompt);
-  if (def.mode === "confirm") return;
-  await submitComposerPrompt(composer);
+  state.runningActionIds.add(runKey);
+  try {
+    closeOpenMenu();
+    await sleep(80);
+
+    if (def.conversationTarget !== "current") {
+      const startedUrl = window.location.href;
+      const newChat = findNewChatButton();
+      if (newChat) {
+        newChat.click();
+        await waitForNewChatSurface(startedUrl, 2500);
+      } else {
+        state.api.log.warn("[quick-actions] new chat button not found; using active composer");
+      }
+    }
+
+    const composer = await waitForComposer(5000);
+    if (!composer) {
+      state.api.log.warn("[quick-actions] no active composer found");
+      await copyPromptFallback(resolvePromptVariables(def.prompt));
+      return;
+    }
+
+    const prompt = resolvePromptVariables(def.prompt);
+    fillComposer(composer, prompt);
+    if (def.mode === "confirm") return;
+    await submitComposerPrompt(composer);
+  } finally {
+    state.runningActionIds.delete(runKey);
+  }
 }
 
 function findNewChatButton() {
   const controls = Array.from(document.querySelectorAll("button, a"))
     .filter((node) => node instanceof HTMLElement)
-    .filter(isVisibleControl);
+    .filter(isEnabledControl)
+    .filter((node) => {
+      const label = normalizeControlLabel(node);
+      return label === "new chat" || label === "quick chat" || label === "new conversation";
+    });
 
-  return controls.find((node) => {
-    const label = normalizeControlLabel(node);
-    return label === "new chat" || label === "quick chat" || label === "new conversation";
-  }) || null;
+  const visibleNative = controls.find((node) => isVisibleControl(node) && !isSidebarActionGridProxy(node));
+  if (visibleNative) return visibleNative;
+
+  const hiddenNative = controls.find((node) => !isSidebarActionGridProxy(node));
+  if (hiddenNative) return hiddenNative;
+
+  return controls.find(isVisibleControl) || null;
 }
 
 function normalizeControlLabel(node) {
@@ -1445,13 +1470,22 @@ function normalizeControlLabel(node) {
 }
 
 function isVisibleControl(node) {
+  if (!isEnabledControl(node)) return false;
   const rect = node.getBoundingClientRect();
   const style = window.getComputedStyle(node);
   return rect.width > 0 &&
     rect.height > 0 &&
     style.display !== "none" &&
-    style.visibility !== "hidden" &&
-    node.getAttribute("aria-disabled") !== "true";
+    style.visibility !== "hidden";
+}
+
+function isEnabledControl(node) {
+  return !node.disabled && node.getAttribute("aria-disabled") !== "true";
+}
+
+function isSidebarActionGridProxy(node) {
+  return node.getAttribute("data-codexpp-sidebar-action-grid") === "button" ||
+    node.closest('[data-codexpp-sidebar-action-grid="button"]') != null;
 }
 
 function waitForNewChatSurface(startedUrl, timeoutMs) {
@@ -1660,11 +1694,8 @@ async function submitComposerPrompt(target) {
     const button = findBestSubmitButton(target);
     if (button) {
       clickControl(button);
-      await sleep(350);
-      if (!document.documentElement.contains(target) || !composerValue(target).trim()) {
-        return true;
-      }
-      break;
+      await waitForComposerSubmission(target, 2500);
+      return true;
     }
     await sleep(120);
   }
@@ -1672,20 +1703,26 @@ async function submitComposerPrompt(target) {
   const form = target.closest("form");
   if (form instanceof HTMLFormElement) {
     form.requestSubmit?.();
-    await sleep(220);
-    if (!document.documentElement.contains(target) || !composerValue(target).trim()) {
-      return true;
-    }
+    await waitForComposerSubmission(target, 2500);
+    return true;
   }
 
   sendComposerShortcut(target, { metaKey: true });
-  await sleep(220);
-
-  if (composerValue(target).trim()) {
-    sendComposerShortcut(target, {});
-  }
+  await waitForComposerSubmission(target, 2500);
 
   return true;
+}
+
+function waitForComposerSubmission(target, timeoutMs) {
+  const started = Date.now();
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (!document.documentElement.contains(target) || !composerValue(target).trim()) return resolve(true);
+      if (Date.now() - started > timeoutMs) return resolve(false);
+      window.setTimeout(tick, 100);
+    };
+    tick();
+  });
 }
 
 function findBestSubmitButton(target) {
