@@ -31,9 +31,31 @@ const BRANCH_DETAILS_MARKERS = [
   "détails de la branche",
   "details de la branche",
 ];
-const CHANGES_MARKERS = ["changes", "modifications", "changements"];
 const GIT_ACTION_MARKERS = ["git actions", "actions git"];
-const MENU_MARKERS = ["branch details", "changes", "git actions"];
+const GIT_PANEL_LABEL_HINTS = [
+  "git",
+  "changes",
+  "change",
+  "local",
+  "branch",
+  "commit",
+  "pull request",
+  "pr",
+  "source",
+  "modification",
+  "modifications",
+  "branche",
+];
+const GIT_PANEL_STRONG_HINTS = [
+  "git",
+  "branch",
+  "branche",
+  "commit",
+  "pull request",
+  "pr",
+  "modification",
+  "modifications",
+];
 const NATIVE_SUMMARY_PANEL_CLASS_MARKER = "group/summary-panel";
 const CONVERSATION_TARGET_OPTIONS = [
   { value: "new", label: "New conversation" },
@@ -287,13 +309,8 @@ function scheduleInstall(state) {
 }
 
 function installGitMenuAction(state) {
-  const anchors = Array.from(document.querySelectorAll("button, [role='menuitem'], [role='option'], a"))
-    .filter((node) => node instanceof HTMLElement)
-    .filter((node) => labelHasCreatePrAction(normalizeLabel(node)));
-
-  for (const anchor of anchors) {
-    const menu = findMenuContainer(anchor);
-    if (!menu) continue;
+  for (const actionList of findGitActionLists()) {
+    const { menu, template, anchor } = actionList;
 
     let cursor = anchor;
     for (const def of runnableActionDefs(state)) {
@@ -303,7 +320,7 @@ function installGitMenuAction(state) {
         continue;
       }
 
-      const action = createMenuAction(anchor, def, () => runPromptAction(state, def));
+      const action = createMenuAction(template, def, () => runPromptAction(state, def));
       state.actions.add(action);
       cursor.insertAdjacentElement("afterend", action);
       cursor = action;
@@ -429,7 +446,7 @@ function rememberGitContextFromNativeUi(state) {
 }
 
 function findNativeThreadSummaryPanel() {
-  return findNativeSummaryPanelRoot() || findNativeGitActionsTrigger() || findNativeGitActionsSection();
+  return findNativeSummaryPanelRoot() || findNativeGitActionsTrigger() || findNativeGitActionsSection() || findNativeGitPanel();
 }
 
 function findNativeSummaryPanelRoot() {
@@ -461,6 +478,10 @@ function findNativeGitActionsSection() {
         labelHasAny(label, BRANCH_DETAILS_MARKERS) &&
         labelHasAny(label, GIT_ACTION_MARKERS);
     }) || null;
+}
+
+function findNativeGitPanel() {
+  return findGitActionLists()[0]?.menu || null;
 }
 
 function isRenderedNode(node) {
@@ -1368,28 +1389,171 @@ function menuItemFallbackClass() {
   ].join(" ");
 }
 
-function findMenuContainer(anchor) {
-  let node = anchor.parentElement;
-  for (let depth = 0; node && depth < 8; depth += 1, node = node.parentElement) {
-    if (!(node instanceof HTMLElement)) continue;
+function findGitActionLists() {
+  return uniqueElements(findFloatingPanelCandidates())
+    .map(buildGitActionList)
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+}
 
-    const role = node.getAttribute("role") || "";
-    const radix = node.hasAttribute("data-radix-menu-content") ||
-      node.hasAttribute("data-radix-popper-content-wrapper");
-    const text = normalizeLabel(node);
-    const hasMenuMarkers = MENU_MARKERS.every((marker) => text.includes(marker));
-    const hasCurrentMenuMarkers = labelHasAny(text, BRANCH_DETAILS_MARKERS) &&
-      labelHasAny(text, CHANGES_MARKERS) &&
-      labelHasCreatePrAction(text);
+function buildGitActionList(panel) {
+  const groups = findActionRowGroups(panel);
+  if (groups.length === 0) return null;
 
-    if (
-      (role === "menu" || radix || hasMenuMarkers || hasCurrentMenuMarkers) &&
-      (hasMenuMarkers || hasCurrentMenuMarkers)
-    ) {
-      return node;
-    }
+  const group = groups[0];
+  const rows = directMenuRows(group).filter((row) => !row.hasAttribute(ACTION_ATTR));
+  const score = scoreGitPanel(panel, rows);
+  if (!hasGitPanelSignal(panel, rows) || score < 4) return null;
+
+  const template = chooseActionTemplate(rows);
+  const anchor = chooseInsertionAnchor(rows);
+  if (!template || !anchor) return null;
+
+  return { menu: group, template, anchor, score };
+}
+
+function findFloatingPanelCandidates() {
+  return Array.from(document.querySelectorAll("div, section, [role='menu'], [role='dialog'], [data-radix-menu-content], [data-radix-popper-content-wrapper]"))
+    .filter((node) => node instanceof HTMLElement)
+    .filter((node) => !node.closest(`[${FALLBACK_PANEL_ATTR}]`) && isVisibleControl(node))
+    .filter(looksLikeFloatingPanel);
+}
+
+function looksLikeFloatingPanel(node) {
+  if (node === document.body || node === document.documentElement) return false;
+
+  const rect = node.getBoundingClientRect();
+  if (rect.width < 180 || rect.width > 760 || rect.height < 100 || rect.height > window.innerHeight * 0.95) {
+    return false;
   }
-  return null;
+
+  const style = window.getComputedStyle(node);
+  const className = String(node.getAttribute("class") || "");
+  const role = node.getAttribute("role") || "";
+  const position = style.position;
+  const zIndex = Number.parseInt(style.zIndex, 10);
+  const isLayer = position === "fixed" ||
+    position === "absolute" ||
+    Number.isFinite(zIndex) && zIndex > 0 ||
+    role === "menu" ||
+    role === "dialog" ||
+    node.hasAttribute("data-radix-menu-content") ||
+    node.hasAttribute("data-radix-popper-content-wrapper");
+  const hasPanelChrome = style.borderRadius !== "0px" ||
+    style.borderStyle !== "none" ||
+    style.boxShadow !== "none" ||
+    /\brounded-|\bborder\b|\bshadow\b|\bpopover\b|\bdropdown\b/.test(className);
+
+  return (isLayer || hasPanelChrome) && hasPanelChrome;
+}
+
+function findActionRowGroups(panel) {
+  const groups = [panel, ...Array.from(panel.querySelectorAll("div, section, ul, [role='group']"))]
+    .filter((node) => node instanceof HTMLElement)
+    .map((node) => ({ node, rows: directMenuRows(node) }))
+    .filter((entry) => entry.rows.length >= 2)
+    .sort((a, b) => b.rows.length - a.rows.length || elementArea(a.node) - elementArea(b.node));
+
+  return groups.map((entry) => entry.node);
+}
+
+function directMenuRows(node) {
+  if (!(node instanceof HTMLElement)) return [];
+  return Array.from(node.children)
+    .filter((candidate) => candidate instanceof HTMLElement)
+    .filter(isMenuActionRow);
+}
+
+function isMenuActionRow(node) {
+  const rect = node.getBoundingClientRect();
+  if (rect.width < 120 || rect.width > 720 || rect.height < 24 || rect.height > 96) return false;
+
+  const style = window.getComputedStyle(node);
+  const role = node.getAttribute("role") || "";
+  const className = String(node.getAttribute("class") || "");
+  const hasActionRole = /button|menuitem|option/.test(role) || node instanceof HTMLButtonElement || node instanceof HTMLAnchorElement;
+  const looksLikeRow = style.display === "flex" ||
+    style.display === "grid" ||
+    /\bflex\b|\bitems-center\b|\bgap-\d|\bpx-/.test(className);
+  const hasIcon = node.querySelector("svg") != null;
+  const hasPointerCursor = style.cursor === "pointer";
+  const hasShortLabel = normalizeLabel(node).length > 0 && normalizeLabel(node).length < 90;
+
+  return hasActionRole || looksLikeRow && (hasIcon || hasPointerCursor || hasShortLabel);
+}
+
+function scoreGitPanel(panel, rows) {
+  const panelLabel = normalizeSearchText(panel.textContent || "");
+  const rowLabel = normalizeSearchText(rows.map((row) => row.textContent || "").join(" "));
+  const hintScore = Math.min(4, GIT_PANEL_LABEL_HINTS.filter((hint) => panelLabel.includes(hint)).length);
+  const actionHintScore = Math.min(2, GIT_PANEL_LABEL_HINTS.filter((hint) => rowLabel.includes(hint)).length);
+  const iconScore = Math.min(4, rows.reduce((score, row) => score + scoreGitIcon(row), 0));
+  const structureScore = rows.length >= 3 ? 2 : 0;
+  const prScore = rows.some((row) => labelHasCreatePrAction(normalizeSearchText(row.textContent || ""))) ? 1 : 0;
+
+  return hintScore + actionHintScore + iconScore + structureScore + prScore;
+}
+
+function hasGitPanelSignal(panel, rows) {
+  const label = normalizeSearchText([
+    panel.getAttribute("aria-label") || "",
+    panel.getAttribute("title") || "",
+    panel.getAttribute("data-testid") || "",
+    panel.textContent || "",
+  ].join(" "));
+  return GIT_PANEL_STRONG_HINTS.some((hint) => label.includes(hint)) ||
+    rows.some((row) => scoreGitIcon(row) > 0);
+}
+
+function scoreGitIcon(row) {
+  const svgText = Array.from(row.querySelectorAll("svg path, svg circle, svg line, svg polyline"))
+    .map((node) => [
+      node.tagName.toLowerCase(),
+      node.getAttribute("d") || "",
+      node.getAttribute("cx") || "",
+      node.getAttribute("cy") || "",
+      node.getAttribute("x1") || "",
+      node.getAttribute("x2") || "",
+    ].join(" "))
+    .join(" ");
+
+  if (!svgText) return 0;
+
+  const circleCount = (svgText.match(/\bcircle\b/g) || []).length;
+  const hasHorizontalLine = /h[.\d\s-]+|x1.+x2/.test(svgText);
+  if (circleCount >= 3) return 2;
+  if (circleCount >= 1 && hasHorizontalLine) return 1;
+  return 0;
+}
+
+function chooseActionTemplate(rows) {
+  return rows.find((row) => labelHasCreatePrAction(normalizeSearchText(row.textContent || ""))) ||
+    rows.find((row) => isEnabledMenuRow(row)) ||
+    rows[0] ||
+    null;
+}
+
+function chooseInsertionAnchor(rows) {
+  const enabledRows = rows.filter(isEnabledMenuRow);
+  return rows.find((row) => labelHasCreatePrAction(normalizeSearchText(row.textContent || ""))) ||
+    enabledRows[enabledRows.length - 1] ||
+    rows[rows.length - 1] ||
+    null;
+}
+
+function isEnabledMenuRow(row) {
+  return row.getAttribute("aria-disabled") !== "true" &&
+    !row.hasAttribute("disabled") &&
+    window.getComputedStyle(row).pointerEvents !== "none";
+}
+
+function uniqueElements(elements) {
+  return elements.filter((element, index, list) => list.indexOf(element) === index);
+}
+
+function elementArea(node) {
+  const rect = node.getBoundingClientRect();
+  return rect.width * rect.height;
 }
 
 function normalizeLabel(node) {
