@@ -1416,7 +1416,13 @@ function findFloatingPanelCandidates() {
   return Array.from(document.querySelectorAll("div, section, [role='menu'], [role='dialog'], [data-radix-menu-content], [data-radix-popper-content-wrapper]"))
     .filter((node) => node instanceof HTMLElement)
     .filter((node) => !node.closest(`[${FALLBACK_PANEL_ATTR}]`) && isVisibleControl(node))
+    .filter((node) => !isExcludedGitInjectionSurface(node))
     .filter(looksLikeFloatingPanel);
+}
+
+function isExcludedGitInjectionSurface(node) {
+  return node.closest("[data-codexpp-app-pages='panel']") != null ||
+    node.querySelector("input, textarea, select, [contenteditable='true']") != null;
 }
 
 function looksLikeFloatingPanel(node) {
@@ -1444,7 +1450,7 @@ function looksLikeFloatingPanel(node) {
     style.boxShadow !== "none" ||
     /\brounded-|\bborder\b|\bshadow\b|\bpopover\b|\bdropdown\b/.test(className);
 
-  return (isLayer || hasPanelChrome) && hasPanelChrome;
+  return isLayer && hasPanelChrome;
 }
 
 function findActionRowGroups(panel) {
